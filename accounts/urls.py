@@ -12,4 +12,7 @@ urlpatterns = [
     path('admin/verification-requests/', views.AdminVerificationRequestListView.as_view(), name='admin-verification-requests'),
     path('admin/verification-requests/<int:pk>/decision/', views.AdminVerificationDecisionView.as_view(), name='admin-verification-decision'),
     path('users/change-password/', views.ChangePasswordView.as_view(), name='change-password'),
+    path('password-reset/request/', views.ForgotPasswordRequestView.as_view(), name='password-reset-request'),
+    path('password-reset/validate/', views.PasswordResetTokenValidateView.as_view(), name='password-reset-validate'),
+    path('password-reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
 ]

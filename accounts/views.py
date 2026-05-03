@@ -1,6 +1,13 @@
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.core.mail import send_mail
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils import timezone
 from django.db.models import Q
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -15,13 +22,18 @@ from .models import VerificationRequest
 from .serializers import (
     AdminVerificationRequestSerializer,
     ChangePasswordSerializer,
+    ForgotPasswordRequestSerializer,
     LoginSerializer,
+    PasswordResetConfirmSerializer,
     RegisterSerializer,
     UserProfileSerializer,
     VerificationDecisionSerializer,
     VerificationRequestSerializer,
 )
 from .services import AuthService
+
+
+password_reset_token_generator = PasswordResetTokenGenerator()
 
 
 class IsStaffUser(IsAuthenticated):
@@ -189,3 +201,78 @@ class ChangePasswordView(APIView):
             new_password=serializer.validated_data["new_password"],
         )
         return Response({"message": "Password changed successfully."})
+
+
+class ForgotPasswordRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = ForgotPasswordRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        username = serializer.validated_data["username"].strip()
+        email = serializer.validated_data["email"].strip().lower()
+
+        user = User.objects.filter(username=username, email__iexact=email, is_active=True).first()
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = password_reset_token_generator.make_token(user)
+            reset_link = f"{settings.FRONTEND_BASE_URL}/reset-password/confirm?uid={uid}&token={token}"
+
+            send_mail(
+                subject="Reset your Blue Sky password",
+                message=(
+                    "We received a request to reset your Blue Sky account password.\n\n"
+                    f"Open this link to choose a new password:\n{reset_link}\n\n"
+                    f"This link expires in {settings.PASSWORD_RESET_TIMEOUT // 60} minutes.\n"
+                    "If you did not request this, you can ignore this email."
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+        return Response(
+            {
+                "message": (
+                    "If the username and email match an account, a password reset link has been sent."
+                )
+            }
+        )
+
+
+class PasswordResetTokenValidateView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        uid = (request.query_params.get("uid") or "").strip()
+        token = (request.query_params.get("token") or "").strip()
+        if not uid or not token:
+            return Response({"valid": False, "detail": "Missing reset token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = AuthService.get_user_from_reset_uid(uid)
+        is_valid = bool(user and password_reset_token_generator.check_token(user, token))
+        if not is_valid:
+            return Response({"valid": False, "detail": "This reset link is invalid or has expired."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"valid": True})
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        uid = serializer.validated_data["uid"].strip()
+        token = serializer.validated_data["token"].strip()
+        user = AuthService.get_user_from_reset_uid(uid)
+        if not user or not password_reset_token_generator.check_token(user, token):
+            raise ValidationError("This reset link is invalid or has expired.")
+
+        AuthService.set_new_password(
+            user=user,
+            new_password=serializer.validated_data["new_password"],
+        )
+        return Response({"message": "Password reset successfully."})

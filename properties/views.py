@@ -143,7 +143,7 @@ class PropertyImageDeleteView(APIView):
 
     def delete(self, request, pk):
         PropertyService.delete_image(user=request.user, image_id=pk)
-        return Response({"message": "Da xoa anh thanh cong."}, status=status.HTTP_200_OK)
+        return Response({"message": "Image deleted successfully."}, status=status.HTTP_200_OK)
 
 
 class FavoriteListView(generics.ListAPIView):

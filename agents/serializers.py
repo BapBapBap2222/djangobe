@@ -1,8 +1,15 @@
 from rest_framework import serializers
 
 from properties.models import Property
+from utils.supabase_storage import build_media_url
 
 from .models import Agent
+
+
+LISTING_TYPE_LABELS = {
+    "sale": "For Sale",
+    "rent": "For Rent",
+}
 
 
 def get_visible_properties_for_agent(agent: Agent):
@@ -20,7 +27,7 @@ def get_property_image_url(property_obj: Property, request):
     image = property_obj.images.filter(is_primary=True).first() or property_obj.images.first()
     if not image:
         return None
-    return request.build_absolute_uri(image.image.url) if request else image.image.url
+    return build_media_url(image.image, request)
 
 
 class AgentListSerializer(serializers.ModelSerializer):
@@ -124,7 +131,7 @@ class AgentDetailSerializer(serializers.ModelSerializer):
                     "id": property_obj.id,
                     "title": property_obj.title,
                     "label": "New listing",
-                    "listing_type": property_obj.get_listing_type_display(),
+                    "listing_type": LISTING_TYPE_LABELS.get(property_obj.listing_type, property_obj.listing_type),
                     "address": ", ".join(
                         part for part in [property_obj.address, property_obj.district, property_obj.city] if part
                     ),

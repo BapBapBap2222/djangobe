@@ -244,6 +244,8 @@ USE_I18N = True
 
 USE_TZ = True
 
+PASSWORD_RESET_TIMEOUT = int(os.getenv('PASSWORD_RESET_TIMEOUT', '1800'))
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
@@ -288,6 +290,23 @@ if DEBUG:
         r"^http://172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+:(3000|4173|5173|8080)$",
     ])
 
+FRONTEND_BASE_URL = os.getenv(
+    'FRONTEND_BASE_URL',
+    CORS_ALLOWED_ORIGINS[0] if CORS_ALLOWED_ORIGINS else 'http://localhost:8080'
+).rstrip('/')
+
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend',
+)
+EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('1', 'true', 'yes')
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() in ('1', 'true', 'yes')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@bluesky.local')
+
 SWAGGER_PUBLIC = os.getenv('SWAGGER_PUBLIC', 'true' if DEBUG else 'false').lower() in ('1', 'true', 'yes')
 
 # JWT
@@ -301,6 +320,13 @@ SIMPLE_JWT = {
 # Media files (ảnh upload)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+SUPABASE_URL = os.getenv('SUPABASE_URL', '').strip()
+SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '').strip()
+SUPABASE_AVATARS_BUCKET = os.getenv('SUPABASE_AVATARS_BUCKET', 'avatars').strip() or 'avatars'
+SUPABASE_PROPERTY_IMAGES_BUCKET = os.getenv('SUPABASE_PROPERTY_IMAGES_BUCKET', 'property-images').strip() or 'property-images'
+SUPABASE_VERIFICATION_DOCS_BUCKET = os.getenv('SUPABASE_VERIFICATION_DOCS_BUCKET', 'verification-docs').strip() or 'verification-docs'
+SUPABASE_SIGNED_URL_EXPIRES_IN = int(os.getenv('SUPABASE_SIGNED_URL_EXPIRES_IN', '3600'))
 
 # Property media upload policy (V8)
 _property_image_allowed_types = os.getenv(

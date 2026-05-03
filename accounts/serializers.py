@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 
 from agents.models import Agent
+from utils.supabase_storage import build_media_url
 
 from .models import UserProfile, VerificationRequest
 
@@ -103,8 +104,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if instance.avatar:
-            request = self.context.get("request")
-            data["avatar"] = request.build_absolute_uri(instance.avatar.url) if request else instance.avatar.url
+            data["avatar"] = build_media_url(instance.avatar, self.context.get("request"))
         return data
 
     def update(self, instance, validated_data):
@@ -141,9 +141,8 @@ class VerificationRequestSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         request = self.context.get("request")
         for key in ("id_card_front", "id_card_back"):
-            value = data.get(key)
-            if value and request is not None:
-                data[key] = request.build_absolute_uri(value)
+            file_value = getattr(instance, key, None)
+            data[key] = build_media_url(file_value, request) if file_value else data.get(key)
         return data
 
 
@@ -180,9 +179,8 @@ class AdminVerificationRequestSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         request = self.context.get("request")
         for key in ("id_card_front", "id_card_back"):
-            value = data.get(key)
-            if value and request is not None:
-                data[key] = request.build_absolute_uri(value)
+            file_value = getattr(instance, key, None)
+            data[key] = build_media_url(file_value, request) if file_value else data.get(key)
         return data
 
 
@@ -193,6 +191,23 @@ class VerificationDecisionSerializer(serializers.Serializer):
 
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=6)
+    new_password_confirm = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data["new_password"] != data["new_password_confirm"]:
+            raise serializers.ValidationError("New passwords do not match.")
+        return data
+
+
+class ForgotPasswordRequestSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
     new_password = serializers.CharField(write_only=True, min_length=6)
     new_password_confirm = serializers.CharField(write_only=True)
 
