@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import News
+from utils.supabase_storage import build_media_url
 
 
 class NewsSerializer(serializers.ModelSerializer):
@@ -29,8 +30,6 @@ class NewsSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        if ret.get('thumbnail'):
-            request = self.context.get('request', None)
-            if request is not None:
-                ret['thumbnail'] = request.build_absolute_uri(ret['thumbnail'])
+        if instance.thumbnail:
+            ret['thumbnail'] = build_media_url(instance.thumbnail, self.context.get('request'))
         return ret

@@ -326,6 +326,7 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '').strip()
 SUPABASE_AVATARS_BUCKET = os.getenv('SUPABASE_AVATARS_BUCKET', 'avatars').strip() or 'avatars'
 SUPABASE_PROPERTY_IMAGES_BUCKET = os.getenv('SUPABASE_PROPERTY_IMAGES_BUCKET', 'property-images').strip() or 'property-images'
 SUPABASE_VERIFICATION_DOCS_BUCKET = os.getenv('SUPABASE_VERIFICATION_DOCS_BUCKET', 'verification-docs').strip() or 'verification-docs'
+SUPABASE_NEWS_BUCKET = os.getenv('SUPABASE_NEWS_BUCKET', SUPABASE_PROPERTY_IMAGES_BUCKET).strip() or SUPABASE_PROPERTY_IMAGES_BUCKET
 SUPABASE_SIGNED_URL_EXPIRES_IN = int(os.getenv('SUPABASE_SIGNED_URL_EXPIRES_IN', '3600'))
 
 # Property media upload policy (V8)

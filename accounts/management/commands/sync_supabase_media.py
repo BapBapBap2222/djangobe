@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import UserProfile, VerificationRequest
+from news.models import News
 from properties.models import PropertyImage
 from utils.supabase_storage import is_supabase_storage_enabled, upload_existing_file_to_supabase
 
@@ -26,6 +27,9 @@ class Command(BaseCommand):
 
         for image in PropertyImage.objects.exclude(image="").exclude(image__isnull=True):
             upload_jobs.append((settings.SUPABASE_PROPERTY_IMAGES_BUCKET, image.image.name))
+
+        for news in News.objects.exclude(thumbnail="").exclude(thumbnail__isnull=True):
+            upload_jobs.append((settings.SUPABASE_NEWS_BUCKET, news.thumbnail.name))
 
         for verification_request in VerificationRequest.objects.all():
             if verification_request.id_card_front:

@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from core.permissions import IsOwnerOrReadOnly
 
 from .filters import PropertyFilter
+from .pagination import OptionalPageNumberPagination
 from .repositories import PropertyRepository
 from .serializers import (
     FavoriteSerializer,
@@ -28,6 +29,7 @@ class PropertyListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = PropertyFilter
+    pagination_class = OptionalPageNumberPagination
     search_fields = ["title", "description", "city", "district", "address"]
     ordering_fields = ["price", "area", "created_at", "views_count"]
     ordering = ["-created_at"]
@@ -102,6 +104,7 @@ class MyPropertiesView(generics.ListAPIView):
 
     serializer_class = PropertyListSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = OptionalPageNumberPagination
 
     def get_queryset(self):
         return PropertyRepository.get_by_owner(self.request.user)
