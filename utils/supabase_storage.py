@@ -72,6 +72,23 @@ def _join_supabase_url(base_url: str, url_or_path: str) -> str:
     return f"{base_url.rstrip('/')}/{url_or_path.lstrip('/')}"
 
 
+def _read_upload_bytes(file_obj: Any) -> bytes:
+    if isinstance(file_obj, bytes):
+        return file_obj
+
+    if hasattr(file_obj, "seek"):
+        file_obj.seek(0)
+
+    if hasattr(file_obj, "read"):
+        data = file_obj.read()
+        if isinstance(data, bytes):
+            return data
+        if isinstance(data, str):
+            return data.encode("utf-8")
+
+    raise TypeError("Supabase upload expects binary content that can be read into bytes.")
+
+
 _supabase_client = None
 
 
@@ -130,13 +147,12 @@ class SupabaseStorage(Storage):
                 candidate_name = f"{base_name}_{uuid.uuid4().hex[:8]}{ext}".replace("\\", "/").lstrip("/")
 
             upload_file = getattr(content, "file", content)
-            if hasattr(upload_file, "seek"):
-                upload_file.seek(0)
+            upload_bytes = _read_upload_bytes(upload_file)
 
             try:
                 get_supabase_client().storage.from_(self.bucket_name).upload(
                     path=candidate_name,
-                    file=upload_file,
+                    file=upload_bytes,
                     file_options={
                         "content-type": content_type,
                         "cache-control": "3600",
@@ -189,7 +205,7 @@ def upload_existing_file_to_supabase(*, bucket_name: str, storage_path: str, loc
     with local_path.open("rb") as file_handle:
         return get_supabase_client().storage.from_(bucket_name).upload(
             path=storage_path.replace("\\", "/").lstrip("/"),
-            file=file_handle,
+            file=_read_upload_bytes(file_handle),
             file_options={
                 "content-type": content_type or mimetypes.guess_type(str(local_path))[0] or "application/octet-stream",
                 "cache-control": "3600",
@@ -203,6 +219,7 @@ def configure_supabase_model_storages():
         return
 
     from accounts.models import UserProfile, VerificationRequest
+    from news.models import News
     from properties.models import PropertyImage
 
     avatar_storage = SupabaseStorage(
@@ -218,8 +235,13 @@ def configure_supabase_model_storages():
         public_bucket=False,
         signed_url_expires_in=getattr(settings, "SUPABASE_SIGNED_URL_EXPIRES_IN", 3600),
     )
+    news_storage = SupabaseStorage(
+        getattr(settings, "SUPABASE_NEWS_BUCKET", getattr(settings, "SUPABASE_PROPERTY_IMAGES_BUCKET", "property-images")),
+        public_bucket=True,
+    )
 
     UserProfile._meta.get_field("avatar").storage = avatar_storage
     PropertyImage._meta.get_field("image").storage = property_image_storage
     VerificationRequest._meta.get_field("id_card_front").storage = verification_storage
     VerificationRequest._meta.get_field("id_card_back").storage = verification_storage
+    News._meta.get_field("thumbnail").storage = news_storage
