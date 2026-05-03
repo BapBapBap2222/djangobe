@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -108,27 +109,103 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-_db_engine = os.getenv('HSW_DB_ENGINE', os.getenv('DB_ENGINE', 'django.db.backends.mysql')).strip()
+def _parse_database_url(database_url: str) -> dict:
+    parsed = urlparse(database_url)
+    engine_map = {
+        'postgres': 'django.db.backends.postgresql',
+        'postgresql': 'django.db.backends.postgresql',
+        'pgsql': 'django.db.backends.postgresql',
+        'mysql': 'django.db.backends.mysql',
+        'sqlite': 'django.db.backends.sqlite3',
+    }
 
-if _db_engine == 'django.db.backends.sqlite3':
-    DATABASES = {
-        'default': {
-            'ENGINE': _db_engine,
-            'NAME': os.getenv('HSW_DB_NAME', str(BASE_DIR / 'db.sqlite3')),
+    if parsed.scheme not in engine_map:
+        raise ImproperlyConfigured(
+            f"Unsupported database URL scheme: {parsed.scheme}"
+        )
+
+    engine = engine_map[parsed.scheme]
+
+    if engine == 'django.db.backends.sqlite3':
+        return {
+            'ENGINE': engine,
+            'NAME': unquote(parsed.path.lstrip('/')) or str(BASE_DIR / 'db.sqlite3'),
         }
+
+    config = {
+        'ENGINE': engine,
+        'NAME': unquote(parsed.path.lstrip('/')),
+        'USER': unquote(parsed.username or ''),
+        'PASSWORD': unquote(parsed.password or ''),
+        'HOST': parsed.hostname or '',
+        'PORT': str(parsed.port or ('5432' if engine == 'django.db.backends.postgresql' else '3306')),
+    }
+
+    if engine == 'django.db.backends.postgresql':
+        _pg_options = {
+            'sslmode': os.getenv('HSW_DB_SSLMODE', 'require'),
+        }
+        _pg_search_path = os.getenv('HSW_DB_SEARCH_PATH', '').strip()
+        if _pg_search_path:
+            _pg_options['options'] = f"-c search_path={_pg_search_path}"
+        config['OPTIONS'] = _pg_options
+
+    return config
+
+
+_database_url = os.getenv('HSW_DATABASE_URL', os.getenv('DATABASE_URL', '')).strip()
+
+if _database_url:
+    DATABASES = {
+        'default': _parse_database_url(_database_url),
     }
 else:
-    DATABASES = {
-        'default': {
-            'ENGINE': _db_engine,
-            'NAME': os.getenv('HSW_DB_NAME', os.getenv('DB_NAME', 'housesell_db')),
-            # Use project-scoped vars first to avoid collisions with global OS vars.
-            'USER': os.getenv('HSW_DB_USER', 'root'),
-            'PASSWORD': os.getenv('HSW_DB_PASSWORD', ''),
-            'HOST': os.getenv('HSW_DB_HOST', 'localhost'),
-            'PORT': os.getenv('HSW_DB_PORT', '3306'),
+    _db_engine = os.getenv('HSW_DB_ENGINE', os.getenv('DB_ENGINE', 'django.db.backends.mysql')).strip()
+
+    if _db_engine == 'django.db.backends.sqlite3':
+        DATABASES = {
+            'default': {
+                'ENGINE': _db_engine,
+                'NAME': os.getenv('HSW_DB_NAME', str(BASE_DIR / 'db.sqlite3')),
+            }
         }
-    }
+    else:
+        _db_defaults = {
+            'django.db.backends.postgresql': {
+                'NAME': 'postgres',
+                'USER': 'postgres',
+                'HOST': 'localhost',
+                'PORT': '5432',
+            },
+            'django.db.backends.mysql': {
+                'NAME': 'housesell_db',
+                'USER': 'root',
+                'HOST': 'localhost',
+                'PORT': '3306',
+            },
+        }
+        _selected_defaults = _db_defaults.get(_db_engine, _db_defaults['django.db.backends.mysql'])
+
+        DATABASES = {
+            'default': {
+                'ENGINE': _db_engine,
+                'NAME': os.getenv('HSW_DB_NAME', os.getenv('DB_NAME', _selected_defaults['NAME'])),
+                # Use project-scoped vars first to avoid collisions with global OS vars.
+                'USER': os.getenv('HSW_DB_USER', _selected_defaults['USER']),
+                'PASSWORD': os.getenv('HSW_DB_PASSWORD', ''),
+                'HOST': os.getenv('HSW_DB_HOST', _selected_defaults['HOST']),
+                'PORT': os.getenv('HSW_DB_PORT', _selected_defaults['PORT']),
+            }
+        }
+
+        if _db_engine == 'django.db.backends.postgresql':
+            _pg_options = {
+                'sslmode': os.getenv('HSW_DB_SSLMODE', 'require'),
+            }
+            _pg_search_path = os.getenv('HSW_DB_SEARCH_PATH', '').strip()
+            if _pg_search_path:
+                _pg_options['options'] = f"-c search_path={_pg_search_path}"
+            DATABASES['default']['OPTIONS'] = _pg_options
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
