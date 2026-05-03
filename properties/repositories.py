@@ -1,4 +1,4 @@
-from django.db.models import F
+from django.db.models import F, Prefetch
 
 from .models import Favorite, Property, PropertyImage
 
@@ -6,12 +6,17 @@ from .models import Favorite, Property, PropertyImage
 class PropertyRepository:
     """Centralized database access for property domain."""
 
+    _image_prefetch = Prefetch(
+        "images",
+        queryset=PropertyImage.objects.order_by("order", "id"),
+    )
+
     @staticmethod
     def get_available():
         return (
             Property.objects.filter(is_active=True)
-            .select_related("owner")
-            .prefetch_related("images")
+            .select_related("owner", "owner__profile", "owner__agent_profile")
+            .prefetch_related(PropertyRepository._image_prefetch)
         )
 
     @staticmethod
@@ -22,15 +27,15 @@ class PropertyRepository:
     def get_by_owner(user):
         return (
             Property.objects.filter(owner=user)
-            .select_related("owner")
-            .prefetch_related("images")
+            .select_related("owner", "owner__profile", "owner__agent_profile")
+            .prefetch_related(PropertyRepository._image_prefetch)
         )
 
     @staticmethod
     def get_owned_by_id(pk: int, user) -> Property:
         return (
-            Property.objects.select_related("owner")
-            .prefetch_related("images")
+            Property.objects.select_related("owner", "owner__profile", "owner__agent_profile")
+            .prefetch_related(PropertyRepository._image_prefetch)
             .get(pk=pk, owner=user)
         )
 

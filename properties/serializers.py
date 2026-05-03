@@ -1,8 +1,5 @@
 from rest_framework import serializers
 
-from accounts.models import UserProfile
-from agents.models import Agent
-
 from .models import Favorite, Property, PropertyImage
 
 
@@ -34,18 +31,19 @@ class PropertyListSerializer(serializers.ModelSerializer):
         ]
 
     def get_primary_image(self, obj):
-        img = obj.images.filter(is_primary=True).first() or obj.images.first()
+        images = list(obj.images.all())
+        img = next((image for image in images if image.is_primary), None) or (images[0] if images else None)
         if img:
             request = self.context.get('request')
             return request.build_absolute_uri(img.image.url) if request else img.image.url
         return None
 
     def get_owner_phone(self, obj):
-        profile = UserProfile.objects.filter(user=obj.owner).only('phone').first()
+        profile = getattr(obj.owner, 'profile', None)
         return profile.phone if profile else None
 
     def get_owner_agent_slug(self, obj):
-        agent = Agent.objects.filter(user=obj.owner).only('slug').first()
+        agent = getattr(obj.owner, 'agent_profile', None)
         return agent.slug if agent else None
 
 
@@ -72,11 +70,11 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
         return False
 
     def get_owner_phone(self, obj):
-        profile = UserProfile.objects.filter(user=obj.owner).only('phone').first()
+        profile = getattr(obj.owner, 'profile', None)
         return profile.phone if profile else None
 
     def get_owner_agent_slug(self, obj):
-        agent = Agent.objects.filter(user=obj.owner).only('slug').first()
+        agent = getattr(obj.owner, 'agent_profile', None)
         return agent.slug if agent else None
 
 
