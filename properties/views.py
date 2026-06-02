@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.permissions import IsOwnerOrReadOnly
+from core.permissions import IsOwnerOrReadOnly, IsOwnerOrStaffOrReadOnly
 
 from .filters import PropertyFilter
 from .pagination import OptionalPageNumberPagination
@@ -57,12 +57,12 @@ class PropertyListCreateView(generics.ListCreateAPIView):
 class PropertyDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET    /properties/<id>/  -> detail + increment views_count
-    PUT    /properties/<id>/  -> full update (owner)
-    PATCH  /properties/<id>/  -> partial update (owner)
-    DELETE /properties/<id>/  -> delete (owner)
+    PUT    /properties/<id>/  -> full update (owner/admin)
+    PATCH  /properties/<id>/  -> partial update (owner/admin)
+    DELETE /properties/<id>/  -> delete (owner/admin)
     """
 
-    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrStaffOrReadOnly]
 
     def get_queryset(self):
         return PropertyRepository.get_accessible_for_user(self.request.user)

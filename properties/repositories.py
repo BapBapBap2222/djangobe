@@ -37,6 +37,8 @@ class PropertyRepository:
             .prefetch_related(PropertyRepository._image_prefetch)
         )
         if user and user.is_authenticated:
+            if user.is_staff:
+                return PropertyRepository._with_favorite_status(queryset, user)
             return PropertyRepository._with_favorite_status(
                 queryset.filter(Q(is_active=True) | Q(owner=user)),
                 user,

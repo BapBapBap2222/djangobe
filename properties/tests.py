@@ -4,6 +4,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from properties.models import Property
 from utils.factories import TestDataFactory
 
 
@@ -11,6 +12,7 @@ class PropertyApiTests(APITestCase):
     def setUp(self):
         self.owner = TestDataFactory.create_user()
         self.other_user = TestDataFactory.create_user()
+        self.admin_user = TestDataFactory.create_user(is_staff=True)
         self.active_property = TestDataFactory.create_property(owner=self.owner, is_active=True)
         self.inactive_property = TestDataFactory.create_property(owner=self.owner, is_active=False)
 
@@ -136,6 +138,13 @@ class PropertyApiTests(APITestCase):
         response = self.client.delete(reverse("property-detail", kwargs={"pk": self.active_property.id}))
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_delete_any_property(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.delete(reverse("property-detail", kwargs={"pk": self.active_property.id}))
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Property.objects.filter(pk=self.active_property.id).exists())
 
     def test_toggle_favorite_add_then_remove(self):
         self.client.force_authenticate(user=self.other_user)

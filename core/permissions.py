@@ -15,6 +15,20 @@ class IsOwnerOrReadOnly(BasePermission):
         return owner == request.user
 
 
+class IsOwnerOrStaffOrReadOnly(BasePermission):
+    """
+    Allow everyone to read, but only the owner or staff users can mutate.
+    """
+
+    owner_field = "owner"
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return True
+        owner = getattr(obj, self.owner_field, None)
+        return owner == request.user or bool(getattr(request.user, "is_staff", False))
+
+
 class IsAdminOrReadOnly(BasePermission):
     """
     Allow everyone to read, but only staff users can mutate.
